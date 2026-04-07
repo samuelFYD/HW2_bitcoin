@@ -18,21 +18,48 @@ async function startServer() {
       let btcPrice = 95000;
       let mstrPrice = 180.5;
 
+      const headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+      };
+
       const [btcRes, mstrRes] = await Promise.all([
-        fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT").then(r => r.json()),
-        fetch("https://query1.finance.yahoo.com/v8/finance/chart/MSTR").then(r => r.json())
+        fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", { headers }).then(r => r.json()).catch(() => null),
+        fetch("https://query1.finance.yahoo.com/v8/finance/chart/MSTR", { headers }).then(r => r.json()).catch(() => null)
       ]);
 
-      if (btcRes?.price) btcPrice = parseFloat(btcRes.price);
+      if (btcRes?.price) {
+        btcPrice = parseFloat(btcRes.price);
+      } else {
+        // Fallback for BTC price if Binance fails
+        try {
+          const coindeskRes = await fetch("https://api.coindesk.com/v1/bpi/currentprice.json", { headers }).then(r => r.json());
+          if (coindeskRes?.bpi?.USD?.rate_float) {
+            btcPrice = coindeskRes.bpi.USD.rate_float;
+          }
+        } catch (e) {
+          console.error("CoinDesk fallback failed:", e);
+        }
+      }
+
       if (mstrRes?.chart?.result?.[0]?.meta?.regularMarketPrice) {
         mstrPrice = mstrRes.chart.result[0].meta.regularMarketPrice;
+      } else {
+        // Fallback for MSTR price if query1 fails
+        try {
+          const mstrRes2 = await fetch("https://query2.finance.yahoo.com/v8/finance/chart/MSTR", { headers }).then(r => r.json());
+          if (mstrRes2?.chart?.result?.[0]?.meta?.regularMarketPrice) {
+            mstrPrice = mstrRes2.chart.result[0].meta.regularMarketPrice;
+          }
+        } catch (e) {
+          console.error("Yahoo query2 fallback failed:", e);
+        }
       }
 
       // Fetch Historical Data (MSTR and BTC)
       const yRange = range <= 7 ? "5d" : range <= 30 ? "1mo" : "3mo";
       const [mstrHistRes, btcHistRes] = await Promise.all([
-        fetch(`https://query1.finance.yahoo.com/v8/finance/chart/MSTR?range=${yRange}&interval=1d`).then(r => r.json()),
-        fetch(`https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?range=${yRange}&interval=1d`).then(r => r.json())
+        fetch(`https://query1.finance.yahoo.com/v8/finance/chart/MSTR?range=${yRange}&interval=1d`, { headers }).then(r => r.json()).catch(() => null),
+        fetch(`https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?range=${yRange}&interval=1d`, { headers }).then(r => r.json()).catch(() => null)
       ]);
       
       const mstrResult = mstrHistRes?.chart?.result?.[0];
