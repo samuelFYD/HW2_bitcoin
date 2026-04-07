@@ -23,21 +23,26 @@ async function startServer() {
       };
 
       const [btcRes, mstrRes] = await Promise.all([
-        fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", { headers }).then(r => r.json()).catch(() => null),
+        fetch("https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD", { headers }).then(r => r.json()).catch(() => null),
         fetch("https://query1.finance.yahoo.com/v8/finance/chart/MSTR", { headers }).then(r => r.json()).catch(() => null)
       ]);
 
-      if (btcRes?.price) {
-        btcPrice = parseFloat(btcRes.price);
+      if (btcRes?.chart?.result?.[0]?.meta?.regularMarketPrice) {
+        btcPrice = btcRes.chart.result[0].meta.regularMarketPrice;
       } else {
-        // Fallback for BTC price if Binance fails
+        // Fallback for BTC price if Yahoo fails
         try {
-          const coindeskRes = await fetch("https://api.coindesk.com/v1/bpi/currentprice.json", { headers }).then(r => r.json());
-          if (coindeskRes?.bpi?.USD?.rate_float) {
-            btcPrice = coindeskRes.bpi.USD.rate_float;
+          const binanceRes = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", { headers }).then(r => r.json()).catch(() => null);
+          if (binanceRes?.price) {
+            btcPrice = parseFloat(binanceRes.price);
+          } else {
+            const coindeskRes = await fetch("https://api.coindesk.com/v1/bpi/currentprice.json", { headers }).then(r => r.json());
+            if (coindeskRes?.bpi?.USD?.rate_float) {
+              btcPrice = coindeskRes.bpi.USD.rate_float;
+            }
           }
         } catch (e) {
-          console.error("CoinDesk fallback failed:", e);
+          console.error("BTC fallbacks failed:", e);
         }
       }
 
