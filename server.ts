@@ -23,16 +23,22 @@ async function startServer() {
       };
 
       const [btcRes, mstrRes] = await Promise.all([
-        fetch("https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD", { headers }).then(r => r.json()),
-        fetch("https://query1.finance.yahoo.com/v8/finance/chart/MSTR", { headers }).then(r => r.json())
+        fetch("https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?interval=1m&range=1d", { headers }).then(r => r.json()).catch(() => null),
+        fetch("https://query1.finance.yahoo.com/v8/finance/chart/MSTR", { headers }).then(r => r.json()).catch(() => null)
       ]);
 
-      if (btcRes?.chart?.result?.[0]?.meta?.regularMarketPrice) {
-        btcPrice = btcRes.chart.result[0].meta.regularMarketPrice;
+      if (btcRes?.chart?.result?.[0]) {
+        const result = btcRes.chart.result[0];
+        btcPrice = result.meta?.regularMarketPrice || 
+                   result.indicators?.quote?.[0]?.close?.slice(-1)[0] || 
+                   btcPrice;
       }
 
-      if (mstrRes?.chart?.result?.[0]?.meta?.regularMarketPrice) {
-        mstrPrice = mstrRes.chart.result[0].meta.regularMarketPrice;
+      if (mstrRes?.chart?.result?.[0]) {
+        const result = mstrRes.chart.result[0];
+        mstrPrice = result.meta?.regularMarketPrice || 
+                    result.indicators?.quote?.[0]?.close?.slice(-1)[0] || 
+                    mstrPrice;
       }
 
       // Fetch Historical Data (MSTR and BTC)
